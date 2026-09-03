@@ -12,10 +12,10 @@ Preferences: {data.preferences}
 
 Return ONLY valid JSON.
 
-Return exactly this structure
+Return exactly:
 
 {{
-    "travel_tips":[
+    "travel_tips": [
         "Tip 1",
         "Tip 2",
         "Tip 3",
@@ -26,9 +26,9 @@ Return exactly this structure
 
 Rules:
 - Return exactly 5 travel tips.
-- Tips should be specific to the destination.
-- Include safety, transport, local customs, weather, and money-saving advice.
+- Tips must be specific to {data.destination}.
+- Include safety, transport, local customs, weather and money-saving advice.
+- Return only the JSON shown above.
 - No markdown.
 - No explanations.
-- Return only valid JSON.
 """

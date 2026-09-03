@@ -9,4 +9,12 @@ def generate_packing(data):
 
     response = llm.generate_json(prompt)
 
-    return response["packing_list"]
+    packing = response.get("packing_list", [])
+
+    unique = []
+
+    for item in packing:
+        if item not in unique:
+            unique.append(item)
+
+    return unique[:10]

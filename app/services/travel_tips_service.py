@@ -9,6 +9,12 @@ def generate_travel_tips(data):
 
     response = llm.generate_json(prompt)
 
-    print(response)
+    tips = response.get("travel_tips", [])
 
-    return response
+    unique = []
+
+    for tip in tips:
+        if tip not in unique:
+            unique.append(tip)
+
+    return unique[:5]

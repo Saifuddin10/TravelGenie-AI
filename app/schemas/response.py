@@ -10,18 +10,28 @@ class BudgetSummary(BaseModel):
     activities: int
     remaining: int
 
+class Activity(BaseModel):
+    name: str
+    startTime: str
+    endTime: str
+    bestTime: str
+    visitDuration: str
+    entryFee: str
+
 class DayPlan(BaseModel):
     day: int
     title: str
-    activities: list[str]
+    activities: list[Activity]
+
+class Weather(BaseModel):
+    temperature: float
+    condition: str
+    description: str
 
 class TripResponse(BaseModel):
     destination: str
-
     days: int
-
     budget: int
-
     travelers: int
 
     budget_summary: BudgetSummary
@@ -32,4 +42,6 @@ class TripResponse(BaseModel):
 
     packing_list: Optional[list[PackingItem]] = None
     
-    travel_tips: str
+    travel_tips: list[str]
+
+    weather: Weather
