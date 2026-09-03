@@ -4,4 +4,4 @@ class FoodRecommendation(BaseModel):
     dish: str
     description: str
     best_place: str
-    estimated_price: str
+    estimated_price: int

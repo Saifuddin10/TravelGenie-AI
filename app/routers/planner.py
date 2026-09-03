@@ -15,9 +15,9 @@ def health():
         "status": "Travel Planner API is running."
     }
 
-@router.post("/plan-trip")
-def plan_trip(request: TripRequest):
+@router.post("/plan-trip", response_model=TripResponse)
+async def plan_trip(request: TripRequest):
 
-    trip = generate_trip(request)
+    trip = await generate_trip(request)
 
     return trip

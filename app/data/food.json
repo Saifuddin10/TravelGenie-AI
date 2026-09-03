@@ -1,0 +1,73 @@
+[
+    {
+        "destination": "Hyderabad",
+        "dish": "Hyderabadi Biryani",
+        "restaurant": "Paradise Biryani",
+        "price": 350,
+        "category": "Main Course",
+        "description": "World-famous dum briyani cooked with Basmati rice and aromatic spices."
+    },
+
+    {
+        "destination": "Hyderabad",
+        "dish": "Haleem",
+        "restaurant": "Pista House",
+        "price": 280,
+        "category": "Special",
+        "description": "Slow-cooked weat, lentils and meat delicacy famous during Ramadan."
+    },
+
+    {
+        "destination": "Hyderabad",
+        "dish": "Doubel Ka Meetha",
+        "restaurant": "Sha Gouse",
+        "price": 180,
+        "category": "Dessert",
+        "description": "Traditional bread pudding prepared with milk, saffron and dry fruits."
+    },
+
+    {
+        "destination": "Hyderabad",
+        "dish": "Qubani Ka Meetha",
+        "restaurant": "Bawarchi",
+        "price": 220,
+        "category": "Dessert",
+        "description": "Apricot dessert served with cream or ice cream."
+    },
+
+    {
+        "destination": "Hyderabad",
+        "dish": "Irani Chai & Osmania Biscuits.",
+        "restaurant": "Cafe Niloufer",
+        "price": 120,
+        "category": "Snacks",
+        "description": "Iconic hyderabadi tea served with buttery Osmania biscuits."
+    },
+
+    {
+        "destination": "Hyderabad",
+        "dish": "Pathar ka Gosht",
+        "restaurant": "Hotel Shadab",
+        "price": 450,
+        "category": "Main Course",
+        "description": "Tender meat grilled on the granite stone."
+    },
+
+    {
+        "destination": "Hyderabad",
+        "dish": "Keema Samosa",
+        "restaurant": "Rio Restaurant",
+        "price": 100,
+        "category": "Snacks",
+        "description": "Crispy Samosa stuffed with spicy minced meat."
+    },
+
+    {
+        "destination": "Hyderabad",
+        "dish": "Marag",
+        "restaurant": "Jewel of Nizam",
+        "price": 300,
+        "category": "Soup",
+        "description": "Traditional Hyderabadi mutton soup flavored with spices."
+    }
+]
