@@ -412,11 +412,17 @@ def _candidate_slots(
             ):
                 distance = 0
 
-            elif candidate_end < preferred_start:
+            elif candidate_end <= preferred_start:
                 distance = preferred_start - candidate_end
 
-            else:
+            elif candidate >= preferred_end:
                 distance = candidate - preferred_end
+
+            else:
+                distance = min(
+                    abs(candidate - preferred_start),
+                    abs(candidate_end - preferred_end),
+                )
 
             candidates.append(
                 (
