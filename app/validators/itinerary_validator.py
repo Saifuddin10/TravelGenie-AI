@@ -44,7 +44,58 @@ def _time_to_minutes(time_string):
             f"Expected format like '10:30 AM'."
         )
 
-def validate_itinerary(days, itinerary):
+def _validate_opening_hours(activity, rag_match):
+    """
+    Validate that an activity's scheduled time falls within
+    the attraction's RAG opening hours.
+    """
+
+    timings = rag_match.get("timings")
+
+    # If opening hours are not available, skip this check.
+    if not isinstance(timings, str) or not timings.strip():
+        return
+
+    timings = timings.strip()
+
+    # Attractions marked as "Open all day" are always valid.
+    if timings.lower() == "open all day":
+        return
+
+    # Expected format:
+    # "9:30 AM - 5:30 PM"
+    if " - " not in timings:
+        return
+
+    try:
+        opening_time, closing_time = timings.split(" - ", 1)
+
+        opening_minutes = _time_to_minutes(opening_time)
+        closing_minutes = _time_to_minutes(closing_time)
+
+        activity_start = _time_to_minutes(activity["startTime"])
+        activity_end = _time_to_minutes(activity["endTime"])
+
+    except ValueError:
+        # If RAG contains an unsupported timing format,
+        # do not crash the validator.
+        return
+
+    if activity_start < opening_minutes:
+        raise ValueError(
+            f"Activity '{activity['name']}' starts before "
+            f"the attraction opens. "
+            f"RAG timings: {timings}."
+        )
+
+    if activity_end > closing_minutes:
+        raise ValueError(
+            f"Activity '{activity['name']}' ends after "
+            f"the attraction closes. "
+            f"RAG timings: {timings}."
+        )
+
+def validate_itinerary(days, itinerary, places=None):
     """
     Validate the final repaired itinerary.
 
@@ -140,6 +191,47 @@ def validate_itinerary(days, itinerary):
                     f"{activity_index} has invalid name."
                 )
             normalized_name = name.strip().lower()
+
+            # Validate againest RAG data when provided
+            if places is not None:
+
+                rag_match = next(
+                    (
+                        place
+                        for place in places
+                        if isinstance(place, dict)
+                        and str(place.get("place", "")).strip().lower()
+                        == normalized_name
+                    ),
+                    None,
+                )
+
+                if rag_match is None:
+                    raise ValueError(
+                        f"Activity '{name}' is not present in RAG data."
+                    )
+
+                # Verify authoritative RAG metadata
+                if activity["visitDuration"] != rag_match.get("visit_duration"):
+                    raise ValueError(
+                        f"Activity '{name}' has a visitDuration "
+                        f"that does not match RAG."
+                    ) 
+
+                if activity["entryFee"] != rag_match.get("entry_fee"):
+                    raise ValueError(
+                        f"Activity '{name}' has an entryFee "
+                        f"that does not match RAG."
+                    ) 
+
+                if activity["bestTime"] != rag_match.get("best_time"):
+                    raise ValueError(
+                        f"Activity '{name}' has a bestTime "
+                        f"that does not match RAG."
+                    )
+                
+                 # Validate scheduled time against RAG opening hours
+                _validate_opening_hours(activity, rag_match)
 
             # Duplicate attraction vaidation
 

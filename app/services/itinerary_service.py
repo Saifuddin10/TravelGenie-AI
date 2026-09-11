@@ -126,7 +126,8 @@ def generate_itinerary(data, weather):
 
     validate_itinerary(
         data.days,
-        itinerary
+        itinerary,
+        places
     )
 
     print(
