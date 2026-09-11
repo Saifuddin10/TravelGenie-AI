@@ -21,7 +21,7 @@ def make_valid_itinerary():
                 {
                     "name": "Golconda Fort",
                     "startTime": "11:30 AM",
-                    "endTime": "01:20 PM",
+                    "endTime": "01:30 PM",
                     "bestTime": "Evening",
                     "visitDuration": "2 hour",
                     "entryFee": "₹25",
@@ -414,8 +414,8 @@ def test_open_all_day_activity_passes():
     itinerary = make_valid_itinerary()
 
     # Hussain Sager is "Open all day"
-    itinerary[0]["activities"][2]["startTime"] = "11:00 PM"
-    itinerary[0]["activities"][2]["endTime"] = "11:30 PM"
+    itinerary[0]["activities"][2]["startTime"] = "9:00 PM"
+    itinerary[0]["activities"][2]["endTime"] = "11:00 PM"
 
     # We need to maintain the 30-minute buffer after the
     # previous activity, which ends at 1:20 PM.
@@ -429,3 +429,55 @@ def test_open_all_day_activity_passes():
     )
 
     assert result == itinerary
+
+def test_scheduled_duration_matches_rag():
+    itinerary = make_valid_itinerary()
+    rag_places = get_test_rag_places()
+
+    result = validate_itinerary(
+        days=2,
+        itinerary=itinerary,
+        places=rag_places,
+    )
+
+    assert result == itinerary
+
+
+def test_scheduled_duration_shorter_than_rag_fails():
+    itinerary = make_valid_itinerary()
+
+    # Charminar RAG duration = 1 hour
+    itinerary[0]["activities"][0]["startTime"] = "10:00 AM"
+    itinerary[0]["activities"][0]["endTime"] = "10:30 AM"
+
+    rag_places = get_test_rag_places()
+
+    with pytest.raises(
+        ValueError,
+        match="scheduled duration.*60 minutes",
+    ):
+        validate_itinerary(
+            days=2,
+            itinerary=itinerary,
+            places=rag_places,
+        )
+
+
+def test_scheduled_duration_longer_than_rag_fails():
+    itinerary = make_valid_itinerary()
+
+    # Charminar RAG duration = 1 hour
+    itinerary[0]["activities"][0]["startTime"] = "10:00 AM"
+    itinerary[0]["activities"][0]["endTime"] = "11:30 AM"
+
+    rag_places = get_test_rag_places()
+
+    with pytest.raises(
+        ValueError,
+        match="scheduled duration.*60 minutes",
+    ):
+        validate_itinerary(
+            days=2,
+            itinerary=itinerary,
+            places=rag_places,
+        )
