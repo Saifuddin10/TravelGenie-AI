@@ -44,6 +44,35 @@ def _time_to_minutes(time_string):
             f"Expected format like '10:30 AM'."
         )
 
+def _duration_to_minutes(duration):
+    """
+    Convert a RAG visit duration such as:
+        1 hour
+        2 hour
+        1.5 hour
+        30 minutes
+    into minutes.
+    """
+    if not isinstance(duration, str):
+        raise ValueError(f"Invalid duration value: {duration}")
+
+    duration = duration.strip().lower()
+
+    try:
+        value = float(duration.split()[0])
+    except(ValueError, IndexError):
+        raise ValueError(f"Invalid duration format: '{duration}'.")
+
+    if "hour" in duration:
+        return int(value * 60)
+
+    if "minute" in duration:
+        return int(value)
+
+    raise ValueError(
+        f"Unspported duration format: '{duration}'."
+    )
+
 def _validate_opening_hours(activity, rag_match):
     """
     Validate that an activity's scheduled time falls within
@@ -250,6 +279,21 @@ def validate_itinerary(days, itinerary, places=None):
             end = _time_to_minutes(
                 activity["endTime"]
             )
+
+            # Validate scheduled duration against RAG duration
+            if places is not None:
+                expected_duration = _duration_to_minutes(
+                    rag_match.get("visit_duration")
+                )
+
+                actual_duration = end - start
+
+                if actual_duration != expected_duration:
+                    raise ValueError(
+                        f"Activity '{name}' has a scheduled duration "
+                        f"of {actual_duration} minutes, but RAG "
+                        f"specifies {expected_duration} minutes."
+                    )
 
             # End must be after start
 
