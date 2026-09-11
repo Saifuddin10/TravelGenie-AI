@@ -481,3 +481,44 @@ def test_scheduled_duration_longer_than_rag_fails():
             itinerary=itinerary,
             places=rag_places,
         )
+
+def test_opening_hours_with_to_separator_passes():
+    itinerary = make_valid_itinerary()
+
+    itinerary[0]["activities"][0]["startTime"] = "10:00 AM"
+    itinerary[0]["activities"][0]["endTime"] = "11:00 AM"
+
+    rag_places = get_test_rag_places()
+
+    for place in rag_places:
+        if place["place"] == "Charminar":
+            place["timings"] = "9:30 AM to 5:30 PM"
+
+    result = validate_itinerary(
+        days=2,
+        itinerary=itinerary,
+        places=rag_places,
+    )
+
+    assert result == itinerary
+
+
+def test_opening_hours_with_em_dash_passes():
+    itinerary = make_valid_itinerary()
+
+    itinerary[0]["activities"][0]["startTime"] = "10:00 AM"
+    itinerary[0]["activities"][0]["endTime"] = "11:00 AM"
+
+    rag_places = get_test_rag_places()
+
+    for place in rag_places:
+        if place["place"] == "Charminar":
+            place["timings"] = "9:30 AM — 5:30 PM"
+
+    result = validate_itinerary(
+        days=2,
+        itinerary=itinerary,
+        places=rag_places,
+    )
+
+    assert result == itinerary
