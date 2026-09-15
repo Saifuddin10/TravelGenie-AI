@@ -1,3 +1,5 @@
+from app.utils.itinerary_repair import parse_opening_hours
+
 def _time_to_minutes(time_string):
     """
     Convert a time string such as:
@@ -44,6 +46,26 @@ def _time_to_minutes(time_string):
             f"Expected format like '10:30 AM'."
         )
 
+def _activity_duration_minutes(start_time, end_time):
+    """
+    Calculate activity duration in minutes.
+
+    If the end time is earlier than the start time,
+    treat the activity as crossing midnight.
+    """
+    start = _time_to_minutes(start_time)
+    end = _time_to_minutes(end_time)
+
+    if end < start:
+        end += 24 * 60
+
+    duration = end - start
+
+    if duration > 12 * 60:
+        raise ValueError("Activity duration cannot exceed 12 hours.")
+
+    return duration
+
 def _duration_to_minutes(duration):
     """
     Convert a RAG visit duration such as:
@@ -85,44 +107,48 @@ def _validate_opening_hours(activity, rag_match):
     if not isinstance(timings, str) or not timings.strip():
         return
 
-    timings = timings.strip()
+    ranges = parse_opening_hours(timings)
 
-    # Attractions marked as "Open all day" are always valid.
-    if timings.lower() == "open all day":
+    # If the timing format cannot be parsed, skip this check.
+    if not ranges:
         return
 
-    # Expected format:
-    # "9:30 AM - 5:30 PM"
-    if " - " not in timings:
-        return
+    activity_start = _time_to_minutes(activity["startTime"])
+    activity_end = _time_to_minutes(activity["endTime"])
 
-    try:
-        opening_time, closing_time = timings.split(" - ", 1)
+    # Check whether the complete activity fits inside
+    # any available opening-hours range.
+    for opening_minutes, closing_minutes in ranges:
+        if (
+            activity_start >= opening_minutes
+            and activity_end <= closing_minutes
+        ):
+            return
 
-        opening_minutes = _time_to_minutes(opening_time)
-        closing_minutes = _time_to_minutes(closing_time)
+    # Preserve specific validation errors for normal
+    # same-day opening-hour ranges.
+    if len(ranges) == 1:
+        opening_minutes, closing_minutes = ranges[0]
 
-        activity_start = _time_to_minutes(activity["startTime"])
-        activity_end = _time_to_minutes(activity["endTime"])
+        if activity_start < opening_minutes:
+            raise ValueError(
+                f"Activity '{activity['name']}' starts before "
+                f"the attraction opens. "
+                f"RAG timings: {timings}."
+            )
 
-    except ValueError:
-        # If RAG contains an unsupported timing format,
-        # do not crash the validator.
-        return
+        if activity_end > closing_minutes:
+            raise ValueError(
+                f"Activity '{activity['name']}' ends after "
+                f"the attraction closes. "
+                f"RAG timings: {timings}."
+            )
 
-    if activity_start < opening_minutes:
-        raise ValueError(
-            f"Activity '{activity['name']}' starts before "
-            f"the attraction opens. "
-            f"RAG timings: {timings}."
-        )
-
-    if activity_end > closing_minutes:
-        raise ValueError(
-            f"Activity '{activity['name']}' ends after "
-            f"the attraction closes. "
-            f"RAG timings: {timings}."
-        )
+    raise ValueError(
+        f"Activity '{activity['name']}' is outside "
+        f"the attraction's opening hours. "
+        f"RAG timings: {timings}."
+    )
 
 def validate_itinerary(days, itinerary, places=None):
     """
@@ -137,7 +163,7 @@ def validate_itinerary(days, itinerary, places=None):
     - No duplicate attractions across the trip.
     - Activities are in chronological order.
     - Activities do not overlap.
-    - At least 30 minutes between activities. 
+    - At least 30 minutes between activities.
     """
 
     # 1. Validate number of days
@@ -162,7 +188,7 @@ def validate_itinerary(days, itinerary, places=None):
             raise ValueError(
                 f"Invalid day numbering"
                 f"Expected day {index}."
-            )  
+            )
 
         # Validate activities field
 
@@ -219,6 +245,7 @@ def validate_itinerary(days, itinerary, places=None):
                     f"Day {index}, activity"
                     f"{activity_index} has invalid name."
                 )
+
             normalized_name = name.strip().lower()
 
             # Validate againest RAG data when provided
@@ -245,21 +272,21 @@ def validate_itinerary(days, itinerary, places=None):
                     raise ValueError(
                         f"Activity '{name}' has a visitDuration "
                         f"that does not match RAG."
-                    ) 
+                    )
 
                 if activity["entryFee"] != rag_match.get("entry_fee"):
                     raise ValueError(
                         f"Activity '{name}' has an entryFee "
                         f"that does not match RAG."
-                    ) 
+                    )
 
                 if activity["bestTime"] != rag_match.get("best_time"):
                     raise ValueError(
                         f"Activity '{name}' has a bestTime "
                         f"that does not match RAG."
                     )
-                
-                 # Validate scheduled time against RAG opening hours
+
+                # Validate scheduled time against RAG opening hours
                 _validate_opening_hours(activity, rag_match)
 
             # Duplicate attraction vaidation
@@ -268,6 +295,7 @@ def validate_itinerary(days, itinerary, places=None):
                 raise ValueError(
                     f"Duplicate attraction found: '{name}'."
                 )
+
             globally_used.add(normalized_name)
 
             # Convert time to minute
@@ -286,7 +314,10 @@ def validate_itinerary(days, itinerary, places=None):
                     rag_match.get("visit_duration")
                 )
 
-                actual_duration = end - start
+                actual_duration = _activity_duration_minutes(
+                    activity["startTime"],
+                    activity["endTime"],
+                )
 
                 if actual_duration != expected_duration:
                     raise ValueError(
@@ -298,12 +329,26 @@ def validate_itinerary(days, itinerary, places=None):
             # End must be after start
 
             if end <= start:
-                raise ValueError(
-                    f"Day {index}, activity '{name}' "
-                    f"has an invalid time range: "
-                    f"{activity['startTime']} - "
-                    f"{activity['endTime']}."
-                )
+
+                if end < start:
+                    overnight_end = end + 24 * 60
+
+                    if overnight_end - start <= 12 * 60:
+                        end = overnight_end
+                    else:
+                        raise ValueError(
+                            f"Day {index}, activity '{name}' "
+                            f"has an invalid time range: "
+                            f"{activity['startTime']} - "
+                            f"{activity['endTime']}."
+                        )
+                else:
+                    raise ValueError(
+                        f"Day {index}, activity '{name}' "
+                        f"has an invalid time range: "
+                        f"{activity['startTime']} - "
+                        f"{activity['endTime']}."
+                    )
 
             # Chronological order
 
@@ -319,7 +364,7 @@ def validate_itinerary(days, itinerary, places=None):
 
                 gap = start - previous_end
 
-                if gap < 30: 
+                if gap < 30:
                     raise ValueError(
                         f"Day {index}, activity '{name}' "
                         f"does not have the requried "
@@ -328,7 +373,5 @@ def validate_itinerary(days, itinerary, places=None):
                     )
 
             previous_end = end
-
-    # All validation passed
 
     return itinerary
