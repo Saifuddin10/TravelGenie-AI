@@ -1,7 +1,7 @@
 from datetime import datetime
 from types import SimpleNamespace
 
-from app.services.itinerary_service import generate_itinerary
+from app.services import itinerary_service
 
 
 # ============================================================
@@ -24,6 +24,159 @@ weather = {
 
 
 # ============================================================
+# SIMULATED RAG DATA
+# ============================================================
+
+rag_places = [
+    {
+        "place": "Charminar",
+        "description": "Historic monument and iconic landmark of Hyderabad.",
+        "category": "tourist attraction",
+        "best_time": "Evening",
+        "visit_duration": "1 hour",
+        "entry_fee": "₹25",
+        "timings": "9:30 AM - 5:30 PM",
+        "type": "outdoor",
+        "ideal_weather": ["clear", "clouds"],
+        "nearby_places": ["Golconda Fort"],
+    },
+    {
+        "place": "Golconda Fort",
+        "description": "Historic fort known for its architecture and panoramic views.",
+        "category": "historical",
+        "best_time": "Evening",
+        "visit_duration": "2 hours",
+        "entry_fee": "₹25",
+        "timings": "9:00 AM - 5:30 PM",
+        "type": "outdoor",
+        "ideal_weather": ["clear", "clouds"],
+        "nearby_places": ["Charminar"],
+    },
+    {
+        "place": "Hussain Sagar",
+        "description": "Large lake in Hyderabad known for its scenic views and boating.",
+        "category": "lake",
+        "best_time": "Sunset",
+        "visit_duration": "2 hours",
+        "entry_fee": "Free",
+        "timings": "Open all day",
+        "type": "outdoor",
+        "ideal_weather": ["clear", "clouds"],
+        "nearby_places": ["Buddha Statue"],
+    },
+    {
+        "place": "Buddha Statue",
+        "description": "Large Buddha statue located on an island in Hussain Sagar Lake.",
+        "category": "landmark",
+        "best_time": "Sunset",
+        "visit_duration": "1.5 hours",
+        "entry_fee": "₹70",
+        "timings": "9:00 AM - 9:00 PM",
+        "type": "outdoor",
+        "ideal_weather": ["clear", "clouds"],
+        "nearby_places": ["Hussain Sagar"],
+    },
+    {
+        "place": "Shilparamam",
+        "description": "Traditional arts and crafts village showcasing Indian culture.",
+        "category": "cultural",
+        "best_time": "Evening",
+        "visit_duration": "2 hours",
+        "entry_fee": "₹60",
+        "timings": "10:30 AM - 8:00 PM",
+        "type": "outdoor",
+        "ideal_weather": ["clear", "clouds"],
+        "nearby_places": [],
+    },
+    {
+        "place": "Sudha Cars Museum",
+        "description": "Unique museum displaying unusual and handmade cars.",
+        "category": "museum",
+        "best_time": "Afternoon",
+        "visit_duration": "1.5 hours",
+        "entry_fee": "₹150",
+        "timings": "10:00 AM - 6:00 PM",
+        "type": "indoor",
+        "ideal_weather": ["rain", "clouds"],
+        "nearby_places": [],
+    },
+    {
+        "place": "Salar Jung Museum",
+        "description": "Museum featuring a large collection of art, antiques, and artifacts.",
+        "category": "museum",
+        "best_time": "Morning",
+        "visit_duration": "2 hours",
+        "entry_fee": "₹50",
+        "timings": "10:00 AM - 5:00 PM",
+        "type": "indoor",
+        "ideal_weather": ["rain", "clouds"],
+        "nearby_places": [],
+    },
+    {
+        "place": "Nehru Zoological Park",
+        "description": "Large zoological park with diverse animals and outdoor exhibits.",
+        "category": "zoo",
+        "best_time": "Morning",
+        "visit_duration": "3 hours",
+        "entry_fee": "₹100",
+        "timings": "8:30 AM - 5:00 PM",
+        "type": "outdoor",
+        "ideal_weather": ["clear", "clouds"],
+        "nearby_places": [],
+    },
+    {
+        "place": "Qutub Shahi Tombs",
+        "description": "Historic tomb complex featuring Indo-Islamic architecture.",
+        "category": "historical",
+        "best_time": "Afternoon",
+        "visit_duration": "1.5 hours",
+        "entry_fee": "₹20",
+        "timings": "9:30 AM - 6:00 PM",
+        "type": "outdoor",
+        "ideal_weather": ["clear", "clouds"],
+        "nearby_places": ["Golconda Fort"],
+    },
+]
+
+
+# ============================================================
+# SIMULATED LLM OUTPUT
+# ============================================================
+
+llm_response = {
+    "itinerary": [
+        {
+            "day": 1,
+            "title": "Hyderabad Day 1",
+            "activities": [
+                {"name": "Charminar"},
+                {"name": "Golconda Fort"},
+                {"name": "Hussain Sagar"},
+            ],
+        },
+        {
+            "day": 2,
+            "title": "Hyderabad Day 2",
+            "activities": [
+                {"name": "Buddha Statue"},
+                {"name": "Shilparamam"},
+                {"name": "Sudha Cars Museum"},
+            ],
+        },
+        {
+            "day": 3,
+            "title": "Hyderabad Day 3",
+            "activities": [
+                {"name": "Salar Jung Museum"},
+                {"name": "Nehru Zoological Park"},
+                {"name": "Qutub Shahi Tombs"},
+            ],
+        },
+    ]
+}
+
+
+# ============================================================
 # HELPER
 # ============================================================
 
@@ -37,12 +190,46 @@ def time_to_minutes(time_string):
 
 
 # ============================================================
-# REAL INTEGRATION TEST
+# TEST
 # ============================================================
 
-def test_generate_itinerary():
+def test_generate_itinerary(monkeypatch):
 
-    itinerary = generate_itinerary(
+    # --------------------------------------------------------
+    # Mock RAG retrieval
+    # --------------------------------------------------------
+
+    monkeypatch.setattr(
+        itinerary_service,
+        "retrieve_places",
+        lambda destination: rag_places,
+    )
+
+    # --------------------------------------------------------
+    # Mock weather filtering
+    # --------------------------------------------------------
+
+    monkeypatch.setattr(
+        itinerary_service,
+        "filter_places_by_weather",
+        lambda places, weather: places,
+    )
+
+    # --------------------------------------------------------
+    # Mock LLM response
+    # --------------------------------------------------------
+
+    monkeypatch.setattr(
+        itinerary_service.llm,
+        "generate_json",
+        lambda prompt: llm_response,
+    )
+
+    # --------------------------------------------------------
+    # Generate itinerary
+    # --------------------------------------------------------
+
+    itinerary = itinerary_service.generate_itinerary(
         data=data,
         weather=weather,
     )
@@ -69,7 +256,6 @@ def test_generate_itinerary():
 
         activities = day.get("activities", [])
 
-        # Exactly 3 activities per day
         assert len(activities) == 3, (
             f"Day {day.get('day')} should have exactly "
             f"3 activities, but got {len(activities)}."

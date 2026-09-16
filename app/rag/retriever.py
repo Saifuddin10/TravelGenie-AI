@@ -1,9 +1,15 @@
-from sentence_transformers import SentenceTransformer
+from functools import lru_cache
 from app.rag.chroma_client import collection
 
-model = SentenceTransformer("all-MiniLM-L6-v2")
+@lru_cache(maxsize=1)
+def get_model():
+    from sentence_transformers import SentenceTransformer
+
+    return SentenceTransformer("all-MiniLM-L6-v2")
 
 def retrieve_places(destination: str, top_k: int = 50):
+
+    model = get_model()
 
     embedding = model.encode(destination).tolist()
 
