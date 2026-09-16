@@ -715,3 +715,95 @@ def test_repair_itinerary_does_not_duplicate_nearby_attractions_across_days():
     assert "Charminar" in day_1_names
     assert "Mecca Masjid" in day_1_names
     assert "Golkonda Fort" in day_2_names
+
+def test_repair_itinerary_handles_malformed_llm_activities():
+
+    places = [
+        {
+            "place": "Charminar",
+            "nearby_places": [],
+            "best_time": "Morning",
+            "visit_duration": "2 hours",
+            "timings": "9:30 AM - 5:30 PM",
+            "entry_fee": "₹25",
+            "ideal_weather": ["clear"],
+            "type": "outdoor",
+        },
+        {
+            "place": "Mecca Masjid",
+            "nearby_places": ["Charminar"],
+            "best_time": "Morning",
+            "visit_duration": "1 hour",
+            "timings": "4 AM - 9:30 PM",
+            "entry_fee": "Free",
+            "ideal_weather": ["clear"],
+            "type": "outdoor",
+        },
+        {
+            "place": "Laad Bazaar",
+            "nearby_places": ["Charminar", "Mecca Masjid"],
+            "best_time": "Evening",
+            "visit_duration": "2 hours",
+            "timings": "10 AM - 10 PM",
+            "entry_fee": "Free",
+            "ideal_weather": ["clear"],
+            "type": "outdoor",
+        },
+        {
+            "place": "Golkonda Fort",
+            "nearby_places": [],
+            "best_time": "Evening",
+            "visit_duration": "3 hours",
+            "timings": "9 AM - 5:30 PM",
+            "entry_fee": "₹40",
+            "ideal_weather": ["clear"],
+            "type": "outdoor",
+        },
+    ]
+
+    malformed_itinerary = [
+        {
+            "day": 1,
+            "title": "Day 1",
+            "activities": [
+                {"name": "Charminar"},
+                {"activity": "Mecca Masjid"},
+                {},
+                None,
+                {"name": "Unknown Place"},
+            ],
+        }
+    ]
+
+    repaired = repair_itinerary(
+        days=1,
+        itinerary=malformed_itinerary,
+        places=places,
+        weather={
+            "condition": "clear",
+            "temperature": 28,
+        },
+    )
+
+    activities = repaired[0]["activities"]
+
+    assert len(activities) == 3
+
+    names = [
+        activity["name"]
+        for activity in activities
+    ]
+
+    assert "Charminar" in names
+    assert "Mecca Masjid" in names
+
+    # Invalid LLM entries should not appear.
+    assert "Unknown Place" not in names
+
+    # Every returned activity must come from RAG.
+    rag_names = {
+        place["place"]
+        for place in places
+    }
+
+    assert set(names).issubset(rag_names)
