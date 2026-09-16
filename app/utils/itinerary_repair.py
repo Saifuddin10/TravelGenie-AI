@@ -62,7 +62,11 @@ def _time_to_minutes(time_string):
 
         time_part, meridiem = parts
 
-        hour, minute = map(int, time_part.split(":"))
+        if ":" in time_part:
+            hour, minute = map(int, time_part.split(":"))
+        else:
+            hour = int(time_part)
+            minute = 0
 
         if hour < 1 or hour > 12:
             raise ValueError
@@ -263,53 +267,73 @@ def _best_time_compatibility(place):
     return scores.get(best_time, 5)
 
 
-def _nearby_score(place, selected_places):
+def _get_nearby_places(place):
     """
-    Reward geographic grouping when nearby_places data supports it.
+    Return normalized nearby-place from the attraction.
     """
-
     if not isinstance(place, dict):
-        return 0
+        return set()
 
     nearby = place.get("nearby_places", [])
 
     if isinstance(nearby, str):
         if nearby.strip().lower() in {"none", "null", ""}:
-            nearby = []
-        else:
-            nearby = [nearby]
+            return set()
 
-    nearby_normalized = {
+        nearby = [nearby]
+
+    if not isinstance(nearby, list):
+        return set()
+
+    return{
         _normalize_name(value)
         for value in nearby
+        if _normalize_name(value)
     }
+
+def _nearby_score(place, selected_places):
+    """
+    Reward attractions that are geographically related
+    to attractions already selected for the day.
+
+    The relationship can be defined in either direction:
+
+        candidate -> selected
+        selected -> candidate
+    """
+    if not isinstance(place, dict):
+        return 0
+
+    candidate_name = _normalize_name(
+        place.get("place")
+    )
+
+    if not candidate_name:
+        return 0
+
+    candidate_nearby = _get_nearby_places(place)
 
     score = 0
 
     for selected in selected_places:
+
+        if not isinstance(selected, dict):
+            continue
+
         selected_name = _normalize_name(
             selected.get("place")
-            if isinstance(selected, dict)
-            else selected
+            or selected.get("name")
         )
 
-        selected_nearby = selected.get("nearby_places", [])
+        if not selected_name:
+            continue
 
-        if isinstance(selected_nearby, str):
-            if selected_nearby.strip().lower() in {"none", "null", ""}:
-                selected_nearby = []
-            else:
-                selected_nearby = [selected_nearby]
+        selected_nearby = _get_nearby_places(selected)
 
-        selected_nearby_normalized = {
-            _normalize_name(value)
-            for value in selected_nearby
-        }
-
-        if selected_name in nearby_normalized:
+        if selected_name in candidate_nearby:
             score += 25
 
-        if _normalize_name(place.get("place")) in selected_nearby_normalized:
+        if candidate_name in selected_nearby:
             score += 25
 
     return score
