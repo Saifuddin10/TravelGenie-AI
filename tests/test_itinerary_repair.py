@@ -1,7 +1,7 @@
 import pytest
 from datetime import datetime
 
-from app.utils.itinerary_repair import repair_itinerary
+from app.utils.itinerary_repair import repair_itinerary, _get_nearby_places, _nearby_score, _select_best_fallback
 
 
 # ============================================================
@@ -304,3 +304,414 @@ def test_itinerary_repair():
         f"Expected {expected_activities} total activities, "
         f"but got {total_activities}."
     )
+
+def test_get_nearby_places_normalize_values():
+
+    place = {
+        "place": "Charminar",
+        "nearby_places":[
+            "Mecca Masjid",
+            "Laad Bazaar"
+        ],
+    }
+
+    result = _get_nearby_places(place)
+
+    assert result == {
+        "mecca masjid",
+        "laad bazaar"
+    }
+
+def test_get_nearby_places_handles_empty_values():
+
+    place = {
+        "place": "Charminar",
+        "nearby_places": "None",
+    }
+
+    result = _get_nearby_places(place)
+
+    assert result == set()
+
+def test_nearby_score_candidate_points_to_selected():
+
+    candidate = {
+        "place": "Mecca Masjid",
+        "nearby_places": ["Charminar"],
+    }
+
+    selected = [
+        {
+            "place": "Charminar",
+            "nearby_places": [],
+        }
+    ]
+
+    score = _nearby_score(
+        candidate,
+        selected,
+    )
+
+    assert score == 25
+
+def test_nearby_score_selected_points_to_candidate():
+
+    candidate = {
+        "place": "Mecca Masjid",
+        "nearby_places": [],
+    }
+
+    selected = [
+        {
+            "place": "Charminar",
+            "nearby_places": ["Mecca Masjid"],
+        }
+    ]
+
+    score = _nearby_score(
+        candidate,
+        selected,
+    )
+
+    assert score == 25
+
+def test_nearby_score_bidirectional_relationship():
+
+    candidate = {
+        "place": "Mecca Masjid",
+        "nearby_places": ["Charminar"],
+    }
+
+    selected = [
+        {
+            "place": "Charminar",
+            "nearby_places": ["Mecca Masjid"]
+        }
+    ]
+
+    score = _nearby_score(
+        candidate,
+        selected,
+    )
+
+    assert score == 50
+
+def test_nearby_score_unrelated_place():
+
+    candidate = {
+        "place": "Golkonda Fort",
+        "nearby_places": ["Qutub Shahi Tombs"],
+    }
+
+    selected = [
+        {
+            "place": "Charminar",
+            "nearby_places": ["Mecca Masjid", "Laad Bazaar"],
+        }
+    ]
+
+    score = _nearby_score(
+        candidate,
+        selected
+    )
+
+    assert score == 0
+
+def test_select_best_fallback_prefers_nearby_place():
+
+    selected_activity = {
+        "name": "Charminar",
+        "_start_minutes": 9 * 60,
+        "_end_minutes": 11 * 60,
+    }
+
+    selected_place = {
+        "place": "Charminar",
+        "nearby_places": ["Mecca Masjid"],
+    }
+
+    nearby_candidate = {
+        "place": "Mecca Masjid",
+        "nearby_places": ["Charminar"],
+        "best_time": "Morning",
+        "visit_duration": "1 hour",
+        "timings": "4 AM - 9:30 PM",
+        "entry_fee": "Free",
+        "ideal_weather": ["clear"],
+        "type": "outdoor",
+    }
+
+    unrelated_candidate = {
+        "place": "Golkonda Fort",
+        "nearby_places": ["Qutub Shahi Tombs"],
+        "best_time": "Morning",
+        "visit_duration": "1 hour",
+        "timings": "9 AM - 5:30 PM",
+        "entry_fee": "₹40",
+        "ideal_weather": ["clear"],
+        "type": "outdoor",
+    }
+
+    place, activity = _select_best_fallback(
+        remaining_places=[
+            unrelated_candidate,
+            nearby_candidate,
+        ],
+        existing_activities=[
+            selected_activity,
+            selected_place,
+        ],
+        weather={
+            "condition": "clear",
+            "temperature": 28,
+        },
+    )
+
+    assert place["place"] == "Mecca Masjid"
+    assert activity["name"] == "Mecca Masjid"
+
+def test_repair_itinerary_groups_nearby_attractions():
+
+    places = [
+        {
+            "place": "Charminar",
+            "nearby_places": ["Mecca Masjid", "Laad Bazaar"],
+            "best_time": "Morning",
+            "visit_duration": "2 hours",
+            "timings": "9:30 AM - 5:30 PM",
+            "entry_fee": "₹25",
+            "ideal_weather": ["clear"],
+            "type": "outdoor",
+        },
+        {
+            "place": "Mecca Masjid",
+            "nearby_places": ["Charminar", "Laad Bazaar"],
+            "best_time": "Morning",
+            "visit_duration": "1 hour",
+            "timings": "4 AM - 9:30 PM",
+            "entry_fee": "Free",
+            "ideal_weather": ["clear"],
+            "type": "outdoor",
+        },
+        {
+            "place": "Laad Bazaar",
+            "nearby_places": ["Charminar", "Mecca Masjid"],
+            "best_time": "Evening",
+            "visit_duration": "2 hours",
+            "timings": "10 AM - 10 PM",
+            "entry_fee": "Free",
+            "ideal_weather": ["clear"],
+            "type": "outdoor",
+        },
+        {
+            "place": "Golkonda Fort",
+            "nearby_places": ["Qutub Shahi Tombs"],
+            "best_time": "Evening",
+            "visit_duration": "3 hours",
+            "timings": "9 AM - 5:30 PM",
+            "entry_fee": "₹40",
+            "ideal_weather": ["clear"],
+            "type": "outdoor",
+        },
+    ]
+
+    itinerary = [
+        {
+            "day": 1,
+            "title": "Day 1",
+            "activities": [
+                {
+                    "name": "Charminar"
+                }
+            ]
+        }
+    ]
+
+    repaired = repair_itinerary(
+        days=1,
+        itinerary=itinerary,
+        places=places,
+        weather={
+            "condition": "clear",
+            "temperature": 28,
+        },
+    )
+
+    activities = repaired[0]["activities"]
+
+    assert len(activities) == 3
+
+    names = [
+        activity["name"]
+        for activity in activities
+    ]
+
+    assert "Charminar" in names
+    assert "Mecca Masjid" in names
+    assert "Laad Bazaar" in names
+
+def test_select_best_fallback_rejects_infeasible_nearby_place():
+
+    selected_activity = {
+        "name": "Charminar",
+        "_start_minutes": 9 * 60,
+        "_end_minutes": 11 * 60,
+    }
+
+    selected_place = {
+        "place": "Charminar",
+        "nearby_places": ["Mecca Masjid"],
+    }
+
+    nearby_but_infeasible = {
+        "place": "Mecca Masjid",
+        "nearby_places": ["Charminar"],
+        "best_time": "Morning",
+        "visit_duration": "2 hours",
+        "timings": "10 AM - 11 AM",
+        "entry_fee": "Free",
+        "ideal_weather": ["clear"],
+        "type": "outdoor",
+    }
+
+    feasible_unrelated = {
+        "place": "Golkonda Fort",
+        "nearby_places": ["Qutub Shahi Tombs"],
+        "best_time": "Morning",
+        "visit_duration": "1 hour",
+        "timings": "9 AM - 5:30 PM",
+        "entry_fee": "₹40",
+        "ideal_weather": ["clear"],
+        "type": "outdoor",
+    }
+
+    place, activity = _select_best_fallback(
+        remaining_places=[
+            nearby_but_infeasible,
+            feasible_unrelated,
+        ],
+        existing_activities=[
+            selected_activity,
+            selected_place,
+        ],
+        weather={
+            "condition": "clear",
+            "temperature": 28,
+        },
+    )
+
+    assert place["place"] == "Golkonda Fort"
+    assert activity["name"] == "Golkonda Fort"
+
+def test_repair_itinerary_does_not_duplicate_nearby_attractions_across_days():
+
+    places = [
+        {
+            "place": "Charminar",
+            "nearby_places": ["Mecca Masjid", "Laad Bazaar"],
+            "best_time": "Morning",
+            "visit_duration": "2 hours",
+            "timings": "9:30 AM - 5:30 PM",
+            "entry_fee": "₹25",
+            "ideal_weather": ["clear"],
+            "type": "outdoor",
+        },
+        {
+            "place": "Mecca Masjid",
+            "nearby_places": ["Charminar", "Laad Bazaar"],
+            "best_time": "Morning",
+            "visit_duration": "1 hour",
+            "timings": "4 AM - 9:30 PM",
+            "entry_fee": "Free",
+            "ideal_weather": ["clear"],
+            "type": "outdoor",
+        },
+        {
+            "place": "Laad Bazaar",
+            "nearby_places": ["Charminar", "Mecca Masjid"],
+            "best_time": "Evening",
+            "visit_duration": "2 hours",
+            "timings": "10 AM - 10 PM",
+            "entry_fee": "Free",
+            "ideal_weather": ["clear"],
+            "type": "outdoor",
+        },
+        {
+            "place": "Golkonda Fort",
+            "nearby_places": ["Qutub Shahi Tombs"],
+            "best_time": "Evening",
+            "visit_duration": "3 hours",
+            "timings": "9 AM - 5:30 PM",
+            "entry_fee": "₹40",
+            "ideal_weather": ["clear"],
+            "type": "outdoor",
+        },
+        {
+            "place": "Qutub Shahi Tombs",
+            "nearby_places": ["Golkonda Fort"],
+            "best_time": "Morning",
+            "visit_duration": "2 hours",
+            "timings": "9:30 AM - 5:30 PM",
+            "entry_fee": "₹20",
+            "ideal_weather": ["clear"],
+            "type": "outdoor",
+        },
+        {
+            "place": "Birla Mandir",
+            "nearby_places": ["Lumbini Park", "Hussain Sagar"],
+            "best_time": "Evening",
+            "visit_duration": "1 hour",
+            "timings": "7 AM - 9 PM",
+            "entry_fee": "Free",
+            "ideal_weather": ["clear"],
+            "type": "outdoor",
+        },
+    ]
+
+    itinerary = [
+        {
+            "day": 1,
+            "title": "Day 1",
+            "activities": [
+                {"name": "Charminar"},
+                {"name": "Mecca Masjid"},
+            ],
+        },
+        {
+            "day": 2,
+            "title": "Day 2",
+            "activities": [
+                {"name": "Golkonda Fort"},
+            ],
+        },
+    ]
+
+    repaired = repair_itinerary(
+        days=2,
+        itinerary=itinerary,
+        places=places,
+        weather={
+            "condition": "clear",
+            "temperature": 28,
+        },
+    )
+
+    day_1_names = {
+        activity["name"]
+        for activity in repaired[0]["activities"]
+    }
+
+    day_2_names = {
+        activity["name"]
+        for activity in repaired[1]["activities"]
+    }
+
+    all_names = day_1_names | day_2_names
+
+    assert len(all_names) == (
+        len(day_1_names) + len(day_2_names)
+    )
+
+    assert "Charminar" in day_1_names
+    assert "Mecca Masjid" in day_1_names
+    assert "Golkonda Fort" in day_2_names
