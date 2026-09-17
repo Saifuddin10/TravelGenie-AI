@@ -807,3 +807,97 @@ def test_repair_itinerary_handles_malformed_llm_activities():
     }
 
     assert set(names).issubset(rag_names)
+
+def test_repair_itinerary_replaces_unschedulable_valid_llm_activity():
+
+    places = [
+        {
+            "place": "Charminar",
+            "nearby_places": [],
+            "best_time": "Morning",
+            "visit_duration": "2 hours",
+            "timings": "9:30 AM - 5:30 PM",
+            "entry_fee": "₹25",
+            "ideal_weather": ["clear"],
+            "type": "outdoor",
+        },
+        {
+            "place": "Mecca Masjid",
+            "nearby_places": [],
+            "best_time": "Morning",
+            "visit_duration": "1 hour",
+            "timings": "4 AM - 9:30 PM",
+            "entry_fee": "Free",
+            "ideal_weather":["clear"],
+            "type": "outdoor",
+        },
+        {
+            "place": "Laad Bazaar",
+            "nearby_places": [],
+            "best_time": "Evening",
+            "visit_duration": "2 hours",
+            "timings": "10 AM - 10 PM",
+            "entry_fee": "Free",
+            "ideal_weather":["clear"],
+            "type": "outdoor",
+        },
+        {
+            "place": "Golkonda Fort",
+            "nearby_places": [],
+            "best_time": "Evening",
+            "visit_duration": "3 hour",
+            "timings": "9 AM - 5:30 PM",
+            "entry_fee": "₹40",
+            "ideal_weather":["clear"],
+            "type": "outdoor",
+        },
+    ]
+
+    itinerary = [
+        {
+            "day": 1,
+            "title": "Day 1",
+            "activities": [
+                {"name": "Charminar"},
+                {"name": "Golkonda Fort"},
+                {"name": "Laad Bazaar"},
+            ],
+        }
+    ]
+
+    repaired = repair_itinerary(
+        days=1,
+        itinerary=itinerary,
+        places=places,
+        weather={
+            "condition": "clear",
+            "temperature": 28,
+        },
+    )
+
+    activities = repaired[0]["activities"]
+
+    assert len(activities) == 3
+
+    names = [
+        activity["name"]
+        for activity in activities
+    ]
+
+    assert len(names) == len(set(names))
+
+    rag_names = {
+        place["place"]
+        for place in places
+    }
+
+    assert set(names).issubset(rag_names)
+
+    for activity in activities:
+
+        start = time_to_minutes(activity["startTime"])
+        end = time_to_minutes(activity["endTime"])
+
+        assert end > start
+
+    assert "Charminar" in names
